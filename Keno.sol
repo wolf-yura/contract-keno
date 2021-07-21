@@ -12,6 +12,12 @@ contract Keno is Ownable, ReentrancyGuard{
 
     uint256 constant gameId = 4;
     uint256 constant gbtsBet = 5 * 10**17; // .5 GBTS to make a bet
+
+    /// @notice bettedGBTS keeps track of all GBTS brought in through ticket purchase
+    uint256 bettedGBTS;
+
+    /// @notice wonGBTS keeps track of all GBTS won by players
+    uint256 wonGBTS;
     
     /// @notice bought ticket
     event TicketBought(address buyer);
@@ -43,6 +49,7 @@ contract Keno is Ownable, ReentrancyGuard{
         uint32 choose;
         uint32[] chosen;
         uint256 gameRandomNumber;
+        bool played;
     }
 
     mapping(address => uint256) currentTicket;
@@ -54,28 +61,32 @@ contract Keno is Ownable, ReentrancyGuard{
         uint32 length = choosen.length;
         require(length <= 10, "To Many chosen");
         require(length > 0, "No number chosen");
-        require(GBTS.transferFrom(msg.sender, address(ULP), gbtsBet) == true, "Bet not transferred")
-        Ticket memory ticket = Ticket(length, _chosen,  ULP.getRandomNumber())
+        require(GBTS.transferFrom(msg.sender, address(ULP), gbtsBet) == true, "Bet not transferred");
+        bettedGBTS += gbtsBet;
+        Ticket memory ticket = Ticket(length, _chosen,  ULP.getRandomNumber());
         playerTickets[msg.sender].push(ticket));
 
-        emit TicketBought(msg.sender)
+        emit TicketBought(msg.sender);
 
     }
     /// @dev internal function to pay any winnings
     /// @param _matches the total number of matches made with the draw
 
-    function payWinnings(uint32 _matches) internal{
+    function payWinnings(uint32 _matches, mapping(uint32=>bool) _draw) internal{
         Ticket storage ticket = playerTicket[msg.sender][currentTicket[msg.sender]];
         uint256 multiplier = winningTable[ticket.choose][_matches];
         currentTicket[msg.sender] += 1;
         uint256 amountToSend = (multiplier * gbtsBet)/100;
+        ticket.played = true;
+        
         if(amountToSend > 0){
+            wonGBTS += amountTosend;
             ULP.sendPrize(
                 msg.sender,
                 amountToSend
             );        
         }
-        emit TicketPlayed(msg.sender, ticket, amountToSend, );
+        emit TicketPlayed(msg.sender, ticket, amountToSend, _draw);
     }
 
     /// @dev Player calls to play the tickets bought
@@ -84,8 +95,9 @@ contract Keno is Ownable, ReentrancyGuard{
         uint256 startingTicketNumber = currentTicket[msg.sender];
         Ticket[] ticketsBought = playerTicket[msg.sender];
         require(startingTicketNumber <= ticketsBought.length, "No ticket to Play");
+
         uint256 currentRandom = ULP.getNewRandomNumber(ticketsBought[startingTicketNumber].gameRandomNumber);
-        mapping(uint32=>bool) drawNumbers = draw(currentRandom);
+        mapping(uint32=>bool) drawNumbers = draw(currentRandom, startingTicketNumber);
 
         uint32 matches;
         uint32[] ticket = ticketBought[startingTicketNumber].chosen;
@@ -100,12 +112,12 @@ contract Keno is Ownable, ReentrancyGuard{
    }
     /// @dev internal function to get the drawn Numbers
     /// @param random used to calculate the drawn numbers
-    /// @return sends a mapping bool back of selected number
+    /// @return sends a mapping bool back of the drawn numbers
 
-    function draw(uint256 random) internal view return(mapping(uint32=>bool)){
+    function draw(uint256 random, uint256 ticket) internal view return(mapping(uint32=>bool)){
         mapping(uint32=>bool) draw;
         uint32 size = 0;
-        uint256 count =0;
+        uint256 count = ticket; 
         while(size<15){
             uint32 gameNumber = uint32(keccak256(abi.encode(newRandomNumber, address(msg.sender), gameId, count))) % 50;
             count += 1;
