@@ -14,10 +14,10 @@ contract Keno is Ownable, ReentrancyGuard{
     uint256 constant gbtsBet = 5 * 10**17; // .5 GBTS to make a bet
     
     /// @notice bought ticket
-    event TicketBought(address buyer)
+    event TicketBought(address buyer);
 
     /// @notice ticket played
-    event TicketPlayed(address player, Ticket ticketPlayed, uint256 winnings)
+    event TicketPlayed(address player, Ticket ticketPlayed, uint256 winnings, mapping(uint32=>bool) drawn);
 
     /// @notice this is used to determine the winnings the player will receive
     mapping(uint32 => uint256[]) winningTable; // divide by 100 to get proper multiplier
@@ -27,16 +27,16 @@ contract Keno is Ownable, ReentrancyGuard{
         ULP = _ULP;
         GBTS = _GBTS;
 
-        winningTable[1] = [0, 326];
-        winningTable[2] = [0,0,1141];
-        winningTable[3] = [0,0,200,2600];        
-        winningTable[4] = [0,0,0,800,7200];
-        winningTable[5] = [0,0,0,100,1600,25490];
-        winningTable[6] = [0,0,0,200,200,4500,65000];
-        winningTable[7] = [100,0,0,0,200,1100,15000,425000];
-        winningTable[8] = [100,0,0,0,100,500,3500,40000,2140000];
-        winningTable[9] = [100,0,0,0,0,300,1600,18000,200000,5000000];
-        winningTable[10] =[100,0,0,0,0,300,700,2000,50000,1000000,20000000];
+        winningTable[1] = [0, 326]; // 0, 3.26
+        winningTable[2] = [0,0,1141]; // 0, 0, 11.41
+        winningTable[3] = [0,0,200,2600]; //  0, 0, 2.00, 26.00     
+        winningTable[4] = [0,0,0,800,7200]; // 0, 0, 0, 8.00, 72.00
+        winningTable[5] = [0,0,0,100,1600,25490]; // 0, 0, 0, 1.00, 16.00, 254.90
+        winningTable[6] = [0,0,0,200,200,4500,65000]; // 0, 0, 0, 2.00, 2.00, 45.00, 650.00
+        winningTable[7] = [100,0,0,0,200,1100,15000,425000]; //1.00, 0, 0, 0, 2.00, 11.00, 150.00, 4250.00
+        winningTable[8] = [100,0,0,0,100,500,3500,40000,2140000]; // 1.00, 0, 0, 0, 1.00, 5.00, 35.00, 400.00, 21400.00
+        winningTable[9] = [100,0,0,0,0,300,1600,18000,200000,5000000]; // 1.00, 0, 0, 0, 0, 3.00, 16.00, 180.00, 2000.00, 50000.00
+        winningTable[10] =[100,0,0,0,0,300,700,2000,50000,1000000,20000000]; //1.00, 0, 0, 0, 0, 3.00, 7.00, 20.00, 500.00, 10000.00, 200000.00
     }
 
     struct Ticket{
@@ -44,6 +44,7 @@ contract Keno is Ownable, ReentrancyGuard{
         uint32[] chosen;
         uint256 gameRandomNumber;
     }
+
     mapping(address => uint256) currentTicket;
     mapping(address => Ticket[]) playerTickets;
 
@@ -74,7 +75,7 @@ contract Keno is Ownable, ReentrancyGuard{
                 amountToSend
             );        
         }
-        emit TicketPlayed(msg.sender, ticket, amountToSend);
+        emit TicketPlayed(msg.sender, ticket, amountToSend, );
     }
 
     /// @dev Player calls to play the tickets bought
@@ -86,15 +87,15 @@ contract Keno is Ownable, ReentrancyGuard{
         uint256 currentRandom = ULP.getNewRandomNumber(ticketsBought[startingTicketNumber].gameRandomNumber);
         mapping(uint32=>bool) drawNumbers = draw(currentRandom);
 
-        for(int32 i =0; i < ticketBought[startingTicketNumber].choose; i++){
-            
-
-
+        uint32 matches;
+        uint32[] ticket = ticketBought[startingTicketNumber].chosen;
+        for(uint32 i =0; i < ticketBought[startingTicketNumber].choose; i++){
+            if(drawNumbers[ticket[i]]){
+                matches+=1;
+            }   
         }
+        payWinnings(matches, drawNumbers);
 
-
-
-        }
 
    }
     /// @dev internal function to get the drawn Numbers
