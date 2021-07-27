@@ -71,8 +71,10 @@ contract Keno is Ownable, ReentrancyGuard {
     mapping(address => uint256) currentTicket;
     mapping(address => Ticket[]) playerTickets;
 
-    /// @dev player buys a ticket
-    /// @param _chosen is an array of the numbers choosens
+    /**
+     * @dev External function for buying ticket.
+     * @param _chosen Array of numbers chosen
+     */
     function buyTicket(uint32[] _chosen) external nonReentrant {
         uint32 length = _chosen.length;
         require(length <= 10, "To Many chosen");
@@ -88,9 +90,11 @@ contract Keno is Ownable, ReentrancyGuard {
         emit TicketBought(msg.sender);
     }
 
-    /// @dev internal function to pay any winnings
-    /// @param _matches the total number of matches made with the draw
-
+    /**
+     * @dev Internal function to pay any winnings.
+     * @param _matches Total number of matches made with the draw
+     * @param _draw Mapping of draw
+     */
     function payWinnings(uint32 _matches, mapping(uint32 => bool) _draw)
         internal
     {
@@ -109,8 +113,9 @@ contract Keno is Ownable, ReentrancyGuard {
         emit TicketPlayed(msg.sender, ticket, amountToSend, _draw);
     }
 
-    /// @dev Player calls to play the tickets bought
-
+    /**
+     * @dev External function to play.
+     */
     function play() external nonReentrant {
         uint256 startingTicketNumber = currentTicket[msg.sender];
         Ticket[] ticketsBought = playerTickets[msg.sender];
@@ -137,10 +142,11 @@ contract Keno is Ownable, ReentrancyGuard {
         payWinnings(matches, drawNumbers);
     }
 
-    /// @dev internal function to get the drawn Numbers
-    /// @param random used to calculate the drawn numbers
-    /// @return sends a mapping bool back of the drawn numbers
-
+    /**
+     * @dev Internal function to draw.
+     * @param random random number
+     * @param ticket Ticket number
+     */
     function draw(uint256 random, uint256 ticket)
         internal
         view
