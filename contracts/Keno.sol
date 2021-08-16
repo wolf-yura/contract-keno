@@ -7,14 +7,14 @@ import "./interfaces/IUnifiedLiquidityPool.sol";
 
 contract Keno is ReentrancyGuard {
     /// @notice Event emitted when user bought the tickets.
-    event TicketsBought(address buyer);
+    event TicketsBought(address buyer, uint256 ticketNumber);
 
     /// @notice Event emitted when user played.
     event TicketPlayed(
         address player,
         Ticket ticketPlayed,
         uint256 winnings,
-        uint256[] drawnTickets
+        uint256[] drawnTickets, uint256 ticketNumber
     );
 
     IUnifiedLiquidityPool public ULP;
@@ -86,14 +86,14 @@ contract Keno is ReentrancyGuard {
 
         GBTS.transferFrom(msg.sender, address(ULP), betAmount);
         totalBettedAmount += betAmount;
-
+        uint256 _ticketNumber = playerTickets[msg.sender].length;
         Ticket memory ticket;
         ticket.length = _chosenTicketNumbers.length;
         ticket.numbers = _chosenTicketNumbers;
         ticket.batchID = ULP.requestRandomNumber();
         playerTickets[msg.sender].push(ticket);
 
-        emit TicketsBought(msg.sender);
+        emit TicketsBought(msg.sender, _ticketNumber);
     }
 
     /**
@@ -162,7 +162,7 @@ contract Keno is ReentrancyGuard {
             msg.sender,
             ticket,
             amountToSend,
-            ticket.drawnTickets
+            ticket.drawnTickets, _ticketNumber
         );
     }
 }
