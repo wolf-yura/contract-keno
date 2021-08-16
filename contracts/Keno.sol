@@ -14,7 +14,8 @@ contract Keno is ReentrancyGuard {
         address player,
         Ticket ticketPlayed,
         uint256 winnings,
-        uint256[] drawnTickets, uint256 ticketNumber
+        bool[51] drawnTickets,
+        uint256 ticketNumber
     );
 
     IUnifiedLiquidityPool public ULP;
@@ -108,15 +109,18 @@ contract Keno is ReentrancyGuard {
 
         Ticket storage ticket = playerTickets[msg.sender][_ticketNumber];
 
-        require(!ticket.drawnTickets[0], "Keno: Current ticket is already played.");
+        require(
+            !ticket.drawnTickets[0],
+            "Keno: Current ticket is already played."
+        );
 
         uint256 randomNumber = ULP.getVerifiedRandomNumber(ticket.batchID);
 
         //Draw numbers using the Random Number Generator.
         uint32 size = 0;
-        
+
         while (size < 15) {
-            uint256 gameNumber = uint256(
+            uint256 gameNumber = (uint256(
                 keccak256(
                     abi.encode(
                         randomNumber,
@@ -125,14 +129,14 @@ contract Keno is ReentrancyGuard {
                         _ticketNumber
                     )
                 )
-            ) % 50 + 1;
+            ) % 50) + 1;
 
             _ticketNumber++;
-            if(!ticket.drawnTickets[gameNumber]){
+
+            if (!ticket.drawnTickets[gameNumber]) {
                 ticket.drawnTickets[gameNumber] = true;
                 size++;
             }
-
         }
 
         uint256 matches = 0;
@@ -145,24 +149,21 @@ contract Keno is ReentrancyGuard {
 
         uint256[] memory selectedWinningTable = winningTable[ticket.length]; //The multiplier array of the choose size
         uint256 multiplier = selectedWinningTable[matches]; //Multiplier
-        uint256 amountToSend = 0;
-
-        if (multiplier > 0) {
-            amountToSend = (multiplier * betAmount) / 100;
-        }
-
-        ticket.drawnTickets[0] = true;
+        uint256 amountToSend = (multiplier * betAmount) / 100;
 
         if (amountToSend > 0) {
             totalWinnings += amountToSend;
             ULP.sendPrize(msg.sender, amountToSend);
         }
 
+        ticket.drawnTickets[0] = true;
+
         emit TicketPlayed(
             msg.sender,
             ticket,
             amountToSend,
-            ticket.drawnTickets, _ticketNumber
+            ticket.drawnTickets,
+            _ticketNumber
         );
     }
 }

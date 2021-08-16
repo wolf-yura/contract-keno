@@ -9,6 +9,11 @@ const timeMachine = require('ganache-time-traveler');
 
 contract("Keno", (accounts) => {
     let gbts_contract, ulp_contract, keno_contract, rng_contract;
+    const outRangeTicketNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const ticket1Numbers = [32, 4, 10, 27, 1];
+    const ticket2Numbers = [1, 11, 22];
+    const ticket3Numbers = [3, 5, 7, 11, 9, 15, 23, 41, 33, 55];
+    const ticket4Numbers = [10, 20, 50, 30];
 
     before(async () => {
         await GBTS.new(
@@ -44,16 +49,13 @@ contract("Keno", (accounts) => {
             keno_contract = instance;
         });
 
-        await gbts_contract.transfer(accounts[1], new BN('1000000000000000000000000'), { from: accounts[0] }); // Win Account 1000000 GBTS
-        await gbts_contract.transfer(accounts[2], new BN('1000000000000000000000000'), { from: accounts[0] }); // Lose Account 1000000 GBTS
-        await gbts_contract.transfer(ulp_contract.address, new BN('100000000000000000000000'), { from: accounts[0] }); //  100000 GBTS
+        await gbts_contract.transfer(accounts[1], new BN('100000000000000000000'), { from: accounts[0] }); //  Account1 100 GBTS
+        await gbts_contract.transfer(accounts[2], new BN('100000000000000000000'), { from: accounts[0] }); //  Account2 100 GBTS
+        await gbts_contract.transfer(ulp_contract.address, new BN('1000000000000000000000'), { from: accounts[0] }); //  1000 GBTS
 
-        await gbts_contract.approve(ulp_contract.address, new BN('10000000000000000000000'), { from: accounts[0] }); // 1000GBTS
-
-        await ulp_contract.startStaking(
-            new BN('1000000000000000000000'), //1000 GBTS
-            { from: accounts[0] }
-        );
+        await gbts_contract.approve(ulp_contract.address, new BN('1000000000000000000000'), { from: accounts[0] }); // 1000 GBTS
+        await gbts_contract.approve(keno_contract.address, new BN('100000000000000000000'), { from: accounts[1] });
+        await gbts_contract.approve(keno_contract.address, new BN('100000000000000000000'), { from: accounts[2] });
 
         await ulp_contract.unlockGameForApproval(
             keno_contract.address,
@@ -67,7 +69,38 @@ contract("Keno", (accounts) => {
             true,
             { from: accounts[0] }
         );
-        await rng_contract.setULPAddress(ulp_contract.address);
-    });
 
+        await rng_contract.setULPAddress(ulp_contract.address);
+
+    });
+    describe("Buy Tickets", () => {
+
+        it("Buying tickets is not working with out of number range.", async () => {
+            let thrownError;
+            try {
+                await keno_contract.buyTicket(
+                    outRangeTicketNumbers,
+                    { from: accounts[1] }
+                );
+            } catch (error) {
+                thrownError = error;
+            }
+
+            assert.include(
+                thrownError.message,
+                'Keno: Every ticket should have 1 to 11 numbers.',
+            )
+        });
+
+
+        it("Buying tickets is working", async () => {
+            await keno_contract.buyTicket(ticket1Numbers, { from: accounts[1] });
+            // await keno_contract.buyTicket(ticket2Numbers, { from: accounts[1] }); 
+            // await keno_contract.buyTicket(ticket3Numbers, { from: accounts[2] }); 
+            // await keno_contract.buyTicket(ticket4Numbers, { from: accounts[2] }); 
+
+            // assert.equal(new BN(await gbts_contract.balanceOf(accounts[1])).toString(), new BN('99000000000000000000').toString());
+            // assert.equal(new BN(await gbts_contract.balanceOf(accounts[2])).toString(), new BN('99000000000000000000').toString());
+        });
+    });
 });
