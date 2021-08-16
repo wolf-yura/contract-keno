@@ -14,7 +14,7 @@ contract Keno is ReentrancyGuard {
         address player,
         Ticket ticketPlayed,
         uint256 winnings,
-        uint256[] drawn
+        uint256[] drawnTickets
     );
 
     IUnifiedLiquidityPool public ULP;
@@ -29,7 +29,7 @@ contract Keno is ReentrancyGuard {
     /// @notice wonGBTS keeps track of all GBTS won by players
     uint256 public totalWinnings;
 
-    /// @notice this is used to determine the winnings the player will receive
+    /// @notice Determine the winnings the player will receive
     uint256[][] public winningTable;
 
     struct Ticket {
@@ -37,7 +37,7 @@ contract Keno is ReentrancyGuard {
         uint256[] numbers;
         bytes32 batchID;
         bool played;
-        uint256[] drawn;
+        uint256[] drawnTickets;
     }
 
     mapping(address => Ticket[]) private playerTickets;
@@ -48,7 +48,11 @@ contract Keno is ReentrancyGuard {
      * @param _GBTS Interface of GBTS
      * @param _gameId Id of current game
      */
-    constructor(IUnifiedLiquidityPool _ULP, IERC20 _GBTS, uint256 _gameId) {
+    constructor(
+        IUnifiedLiquidityPool _ULP,
+        IERC20 _GBTS,
+        uint256 _gameId
+    ) {
         ULP = _ULP;
         GBTS = _GBTS;
         gameId = _gameId;
@@ -113,7 +117,7 @@ contract Keno is ReentrancyGuard {
         uint32 size = 0;
         bool[] memory drawNumbers;
 
-        while(size < 15) {
+        while (size < 15) {
             uint256 gameNumber = uint256(
                 keccak256(
                     abi.encode(
@@ -128,16 +132,16 @@ contract Keno is ReentrancyGuard {
             _ticketNumber++;
             drawNumbers[gameNumber] = true;
 
-            for(uint32 j = 0; j < size; j ++) {
-                if(ticket.drawn[j] == gameNumber) {
+            for (uint32 j = 0; j < size; j++) {
+                if (ticket.drawnTickets[j] == gameNumber) {
                     drawNumbers[gameNumber] = false;
                     break;
                 }
             }
 
-            if(drawNumbers[gameNumber]) {
-                ticket.drawn[size] = gameNumber;
-                size ++;
+            if (drawNumbers[gameNumber]) {
+                ticket.drawnTickets[size] = gameNumber;
+                size++;
             }
         }
 
@@ -164,6 +168,6 @@ contract Keno is ReentrancyGuard {
             ULP.sendPrize(msg.sender, amountToSend);
         }
 
-        emit TicketPlayed(msg.sender, ticket, amountToSend, ticket.drawn);
+        emit TicketPlayed(msg.sender, ticket, amountToSend, ticket.drawnTickets);
     }
 }
