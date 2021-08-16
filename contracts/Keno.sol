@@ -168,6 +168,11 @@ contract Keno is ReentrancyGuard {
             ULP.sendPrize(msg.sender, amountToSend);
         }
 
-        emit TicketPlayed(msg.sender, ticket, amountToSend, ticket.drawnTickets);
+        emit TicketPlayed(
+            msg.sender,
+            ticket,
+            amountToSend,
+            ticket.drawnTickets
+        );
     }
 }
