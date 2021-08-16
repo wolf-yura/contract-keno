@@ -36,8 +36,7 @@ contract Keno is ReentrancyGuard {
         uint256 length;
         uint256[] numbers;
         bytes32 batchID;
-        bool played;
-        uint256[] drawnTickets;
+        bool[51] drawnTickets;
     }
 
     mapping(address => Ticket[]) private playerTickets;
@@ -109,14 +108,13 @@ contract Keno is ReentrancyGuard {
 
         Ticket storage ticket = playerTickets[msg.sender][_ticketNumber];
 
-        require(!ticket.played, "Keno: Current ticket is already played.");
+        require(!ticket.drawnTickets[0], "Keno: Current ticket is already played.");
 
         uint256 randomNumber = ULP.getVerifiedRandomNumber(ticket.batchID);
 
         //Draw numbers using the Random Number Generator.
         uint32 size = 0;
-        bool[] memory drawNumbers;
-
+        
         while (size < 15) {
             uint256 gameNumber = uint256(
                 keccak256(
@@ -127,28 +125,20 @@ contract Keno is ReentrancyGuard {
                         _ticketNumber
                     )
                 )
-            ) % 50;
+            ) % 50 + 1;
 
             _ticketNumber++;
-            drawNumbers[gameNumber] = true;
-
-            for (uint32 j = 0; j < size; j++) {
-                if (ticket.drawnTickets[j] == gameNumber) {
-                    drawNumbers[gameNumber] = false;
-                    break;
-                }
-            }
-
-            if (drawNumbers[gameNumber]) {
-                ticket.drawnTickets[size] = gameNumber;
+            if(!ticket.drawnTickets[gameNumber]){
+                ticket.drawnTickets[gameNumber] = true;
                 size++;
             }
+
         }
 
         uint256 matches = 0;
         //match the players choice with the draw
         for (uint32 i = 0; i < ticket.length; i++) {
-            if (drawNumbers[ticket.numbers[i]]) {
+            if (ticket.drawnTickets[ticket.numbers[i]]) {
                 matches++;
             }
         }
@@ -161,7 +151,7 @@ contract Keno is ReentrancyGuard {
             amountToSend = (multiplier * betAmount) / 100;
         }
 
-        ticket.played = true;
+        ticket.drawnTickets[0] = true;
 
         if (amountToSend > 0) {
             totalWinnings += amountToSend;
