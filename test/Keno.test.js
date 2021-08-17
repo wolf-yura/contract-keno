@@ -10,10 +10,10 @@ const timeMachine = require('ganache-time-traveler');
 contract("Keno", (accounts) => {
     let gbts_contract, ulp_contract, keno_contract, rng_contract;
     const outRangeTicketNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-    const ticket1Numbers = [32, 4, 10, 27, 1];
-    const ticket2Numbers = [1, 11, 22];
-    const ticket3Numbers = [3, 5, 7, 11, 9, 15, 23, 41, 33, 55];
-    const ticket4Numbers = [10, 20, 50, 30];
+    const ticket1Numbers = [1, 2, 3, 4, 5];
+    const ticket2Numbers = [28, 29, 30];
+    const ticket3Numbers = [3, 5, 7, 11, 9, 10, 16];
+    const ticket4Numbers = [48, 47, 46, 45];
 
     before(async () => {
         await GBTS.new(
@@ -75,7 +75,7 @@ contract("Keno", (accounts) => {
     });
     describe("Buy Tickets", () => {
 
-        it("Buying tickets is not working with out of number range.", async () => {
+        it("Buying ticket is not working with out of number range.", async () => {
             let thrownError;
             try {
                 await keno_contract.buyTicket(
@@ -93,14 +93,62 @@ contract("Keno", (accounts) => {
         });
 
 
-        it("Buying tickets is working", async () => {
+        it("Buying ticket is working", async () => {
             await keno_contract.buyTicket(ticket1Numbers, { from: accounts[1] });
-            // await keno_contract.buyTicket(ticket2Numbers, { from: accounts[1] }); 
-            // await keno_contract.buyTicket(ticket3Numbers, { from: accounts[2] }); 
-            // await keno_contract.buyTicket(ticket4Numbers, { from: accounts[2] }); 
+            await keno_contract.buyTicket(ticket2Numbers, { from: accounts[1] });
+            await keno_contract.buyTicket(ticket3Numbers, { from: accounts[2] });
+            await keno_contract.buyTicket(ticket4Numbers, { from: accounts[2] });
 
-            // assert.equal(new BN(await gbts_contract.balanceOf(accounts[1])).toString(), new BN('99000000000000000000').toString());
-            // assert.equal(new BN(await gbts_contract.balanceOf(accounts[2])).toString(), new BN('99000000000000000000').toString());
+            assert.equal(new BN(await gbts_contract.balanceOf(accounts[1])).toString(), new BN('99000000000000000000').toString());
+            assert.equal(new BN(await gbts_contract.balanceOf(accounts[2])).toString(), new BN('99000000000000000000').toString());
         });
+    });
+
+    describe("Play Tickets", () => {
+
+        it("Current ticket number is not correct.", async () => {
+            let thrownError;
+            try {
+                await keno_contract.play(
+                    3,
+                    { from: accounts[1] }
+                );
+            } catch (error) {
+                thrownError = error;
+            }
+
+            assert.include(
+                thrownError.message,
+                'Keno: No ticket to play.',
+            )
+        });
+
+        it("Ticket play is working.", async () => {
+            await keno_contract.play(0, { from: accounts[1] });
+            await keno_contract.play(1, { from: accounts[1] });
+            await keno_contract.play(0, { from: accounts[2] });
+            await keno_contract.play(1, { from: accounts[2] });
+
+            assert.equal(new BN(await gbts_contract.balanceOf(accounts[1])).toString(), new BN('226450000000000000000').toString());
+            assert.equal(new BN(await gbts_contract.balanceOf(accounts[2])).toString(), new BN('174000000000000000000').toString());
+        });
+
+        it("Current ticket is already played", async () => {
+            let thrownError;
+            try {
+                await keno_contract.play(
+                    1,
+                    { from: accounts[1] }
+                );
+            } catch (error) {
+                thrownError = error;
+            }
+
+            assert.include(
+                thrownError.message,
+                'Keno: Current ticket is already played.',
+            )
+        });
+
     });
 });
