@@ -257,14 +257,15 @@ using SafeERC20 for IERC20;
             uint256 tenthOfPercent = (pdoge.balanceOf(address(this)) - lastCollected)/1000;
             lastCollected = pdoge.balanceOf(address(this));
             if(lpSet){
-                pdoge.safeTransfer(lpWallet, (tenthOfPercent * 35));
+                pdoge.safeTransfer(lpWallet, (tenthOfPercent * 280));
             }
             if(pSet){
-                pdoge.safeTransfer(pWallet, (tenthOfPercent*25));
+                pdoge.safeTransfer(pWallet, (tenthOfPercent*200));
             }
-            pdoge.safeTransfer(address(0x000000000000000000000000000000000000dEaD), (tenthOfPercent * 20));
-            burnedPdoge += (tenthOfPercent * 20);
+            pdoge.safeTransfer(address(0x000000000000000000000000000000000000dEaD), (tenthOfPercent * 160));
+            burnedPdoge += (tenthOfPercent * 160);
         }
+        calculateBetAmount();
     }
 
     function setAddresses(address _addy, bool p_LP) onlyOwner{
