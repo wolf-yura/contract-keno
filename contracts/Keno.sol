@@ -85,7 +85,7 @@ contract Keno is ReentrancyGuard {
     {
         require(
             _chosenTicketNumbers.length < 11 && _chosenTicketNumbers.length > 0,
-            "Keno: Every ticket should have 1 to 11 numbers."
+            "Keno: Every ticket should have 1 to 10 numbers."
         );
 
         GBTS.safeTransferFrom(msg.sender, address(ULP), betAmount);
