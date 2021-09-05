@@ -66,7 +66,7 @@ using SafeERC20 for IERC20;
     struct Ticket {
         address player;
         uint256 length;
-        uint256[70] numbers;
+        uint256[] numbers;
         bytes32 ticketID;
         uint256 ticketNumber;
         uint256 betAmount;
