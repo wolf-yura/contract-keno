@@ -1,29 +1,31 @@
-import "./interfaces/IRandomNumberGenerator.sol";
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.6;
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/IRandomNumberGenerator.sol";
 
-contract pDogekeno{
-
-using SafeERC20 for IERC20;
+/**
+ * @title PdogeKeno Contract
+ */
+contract PdogeKeno is ReentrancyGuard, Ownable {
+    using SafeERC20 for IERC20;
 
     /// @notice Event emitted when user bought the tickets.
     event TicketsBought(address buyer, uint256 ticketNumber);
 
     /// @notice Event emitted when user played.
-    event TicketPlayed(
-        address player,
-        Ticket ticketPlayed,
-        uint256 winnings,
+    event TicketPlayed(address player, Ticket ticketPlayed, uint256 winnings);
 
-    );
-
-    /// @notice Event emitted when betAmount changes. 
+    /// @notice Event emitted when betAmount changes.
     event betChanged(uint256 bet, uint256 upper, uint256 lower);
 
-    event addToken(address provider, uint256 amount);
+    event TokenAdded(address provider, uint256 amount);
 
-    event tokenRemoved(address provider, uint256 amount)
+    event tokenRemoved(address provider, uint256 amount);
 
     IRandomNumberGenerator public RNG;
     IERC20 public pdoge;
@@ -45,6 +47,7 @@ using SafeERC20 for IERC20;
     uint256[][] public winningTable;
 
     uint256 nextCollection;
+    uint256 totalWeight;
     address private lpWallet;
     bool lpSet;
     bool pSet;
@@ -58,8 +61,7 @@ using SafeERC20 for IERC20;
     }
 
     modifier isTime() {
-
-        require(block.timestamp >= nextCollection,"Keno: Not time to collect");
+        require(block.timestamp >= nextCollection, "Keno: Not time to collect");
         _;
     }
 
@@ -84,10 +86,7 @@ using SafeERC20 for IERC20;
      * @param _pdoge Interface of pdoge
 
      */
-    constructor(
-        IRandomNumberGenerator _RNG,
-        IERC20 _pdoge
-    ) {
+    constructor(IRandomNumberGenerator _RNG, IERC20 _pdoge) {
         RNG = _RNG;
         pdoge = _pdoge;
 
@@ -99,8 +98,8 @@ using SafeERC20 for IERC20;
         winningTable.push([0, 0, 0, 40, 450, 770]); // 0, 0, 0, 1.00, 16.00, 254.90
         winningTable.push([0, 0, 0, 34, 70, 690, 6990]); // 0, 0, 0, 2.00, 2.00, 45.00, 650.00
         winningTable.push([10, 0, 0, 0, 200, 70, 7770, 77770]); //1.00, 0, 0, 0, 2.00, 11.00, 150.00, 4250.00
-         
     }
+
     /**
      * @dev External function for buying tickets.
      * @param _chosenTicketNumbers Array of numbers chosen
@@ -126,7 +125,7 @@ using SafeERC20 for IERC20;
         ticket.betAmount = betAmount;
         ticket.ticketNumber = _ticketNumber;
         playerTickets[msg.sender].push(_ticketID);
-        tickets[ticketID] = ticket;
+        tickets[_ticketID] = ticket;
         calculateBetAmount();
         emit TicketsBought(msg.sender, _ticketNumber);
     }
@@ -137,19 +136,13 @@ using SafeERC20 for IERC20;
      * @param _randomness Random Number from RNG
      */
     function play(bytes32 _ticketID, uint256 _randomness) external onlyRNG {
-        
         //Draw numbers using the Random Number Generator.
         Ticket storage ticket = tickets[_ticketID];
         uint32 size = 0;
         uint256 count = 0;
         while (size < 17) {
             uint256 gameNumber = (uint256(
-                keccak256(
-                    abi.encode(
-                        _randomness,
-                        count
-                    )
-                )
+                keccak256(abi.encode(_randomness, count))
             ) % 69) + 1;
             count++;
 
@@ -178,44 +171,35 @@ using SafeERC20 for IERC20;
 
         ticket.drawnTickets[0] = true;
 
-        emit TicketPlayed(
-            ticket.player,
-            ticket,
-            amountToSend
-        );
+        emit TicketPlayed(ticket.player, ticket, amountToSend);
     }
 
-
-    function calculateBetAmount() private{
-
-        uint256 contractBal =pdoge.balanceOf(address(this))
-        if(betAmount == 0){
-          betAmount = contractBal/100000
-         upperBound = contractBal * 2;
-          lowerBound = contractBal/5;
+    function calculateBetAmount() private {
+        uint256 contractBal = pdoge.balanceOf(address(this));
+        if (betAmount == 0) {
+            betAmount = contractBal / 100000;
+            upperBound = contractBal * 2;
+            lowerBound = contractBal / 5;
         }
-        if(upperBound < contractBal){
-          upperBound = 3 * upperBound;
+        if (upperBound < contractBal) {
+            upperBound = 3 * upperBound;
             lowerBound = 3 * lowerBound;
-          betAmount = 2 * betAmount;
+            betAmount = 2 * betAmount;
         }
-        if(lowerBound > contractBal){
-
-           betAmount = betAmount/2;
-           upperBound = upperbound/3;
-           lowerBound = lowerBound/3;
+        if (lowerBound > contractBal) {
+            betAmount = betAmount / 2;
+            upperBound = upperBound / 3;
+            lowerBound = lowerBound / 3;
         }
-    emit betChange(betAmount, upperBound, lowerBound);
+        emit betChanged(betAmount, upperBound, lowerBound);
     }
 
-
-    function addToken(uint256 _amount) nonReentrant{
-
+    function addToken(uint256 _amount) external nonReentrant {
         uint256 weightToAdd;
-        uint256 conBal =pdoge.balanceOf(address(this));
-        if(conBal==0){
+        uint256 conBal = pdoge.balanceOf(address(this));
+        if (conBal == 0) {
             weightToAdd = _amount;
-        }else{
+        } else {
             weightToAdd = (_amount * totalWeight) / conBal;
         }
         pdoge.safeTransferFrom(msg.sender, address(this), _amount);
@@ -223,11 +207,10 @@ using SafeERC20 for IERC20;
         provider[msg.sender] += weightToAdd;
         lastCollected += _amount;
         calculateBetAmount();
-        emit addToken(msg.sender, _amount);
+        emit TokenAdded(msg.sender, _amount);
     }
 
-    function removeToken(uint256 _amount) nonReentrant{
-
+    function removeToken(uint256 _amount) external nonReentrant {
         require(provider[msg.sender] > 0, "Keno: User has not provided");
         uint256 conBal = pdoge.balanceOf(address(this));
         uint256 userTokens = (provider[msg.sender] * conBal) / totalWeight;
@@ -235,11 +218,11 @@ using SafeERC20 for IERC20;
 
         uint256 weightToRemove;
 
-        if(_amount == userTokens){
+        if (_amount == userTokens) {
             weightToRemove = provider[msg.sender];
             provider[msg.sender] = 0;
-        }else{
-            weightToRemove = _amount * provider[msg.sender] / userTokens;
+        } else {
+            weightToRemove = (_amount * provider[msg.sender]) / userTokens;
             provider[msg.sender] = provider[msg.sender] - weightToRemove;
         }
         totalWeight = totalWeight - weightToRemove;
@@ -249,51 +232,54 @@ using SafeERC20 for IERC20;
         emit tokenRemoved(msg.sender, _amount);
     }
 
-
-    function LPbuilder()external isTime{
-
-        nextCollection += 7 * days;
-        if(lastCollected <= pdoge.balanceOf(address(this))){
-            uint256 tenthOfPercent = (pdoge.balanceOf(address(this)) - lastCollected)/1000;
+    function LPbuilder() external isTime {
+        nextCollection += 7 * 1 days;
+        if (lastCollected <= pdoge.balanceOf(address(this))) {
+            uint256 tenthOfPercent = (pdoge.balanceOf(address(this)) -
+                lastCollected) / 1000;
             lastCollected = pdoge.balanceOf(address(this));
-            if(lpSet){
+            if (lpSet) {
                 pdoge.safeTransfer(lpWallet, (tenthOfPercent * 280));
             }
-            if(pSet){
-                pdoge.safeTransfer(pWallet, (tenthOfPercent*200));
+            if (pSet) {
+                pdoge.safeTransfer(pWallet, (tenthOfPercent * 200));
             }
-            pdoge.safeTransfer(address(0x000000000000000000000000000000000000dEaD), (tenthOfPercent * 160));
+            pdoge.safeTransfer(
+                address(0x000000000000000000000000000000000000dEaD),
+                (tenthOfPercent * 160)
+            );
             burnedPdoge += (tenthOfPercent * 160);
         }
         calculateBetAmount();
     }
 
-    function setAddresses(address _addy, bool p_LP) onlyOwner{
-
-        if(p_LP && !pSet){
+    function setAddresses(address _addy, bool p_LP) external onlyOwner {
+        if (p_LP && !pSet) {
             pWallet = _addy;
             pSet = true;
         }
-        if(!(p_LP || lpSet)){ //True only when both are false
+        if (!(p_LP || lpSet)) {
+            //True only when both are false
             lpWallet = _addy;
             lpSet = true;
         }
-
     }
 
-    function viewUserToken() view return(uint256) external {
-
-        return (provider[msg.sender] * pdoge.balanceOf(address(this))) / totalWeight;
-
+    function viewUserToken() external view returns (uint256) {
+        return
+            (provider[msg.sender] * pdoge.balanceOf(address(this))) /
+            totalWeight;
     }
 
-    function changeWallet(address _addy)external nonReentrant{
-
-        require((msg.sender == lpWallet) || (msg.sender == pWallet), "Keno: Not proper");
-        if(msg.sender == lpWallet){
-            lpWallet= _addy;
+    function changeWallet(address _addy) external nonReentrant {
+        require(
+            (msg.sender == lpWallet) || (msg.sender == pWallet),
+            "Keno: Not proper"
+        );
+        if (msg.sender == lpWallet) {
+            lpWallet = _addy;
         }
-        if(msg.sender == pWallet){
+        if (msg.sender == pWallet) {
             pWallet == _addy;
         }
     }
