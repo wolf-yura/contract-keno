@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.6;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -27,7 +27,6 @@ contract Keno is ReentrancyGuard {
     IUnifiedLiquidityPool public ULP;
     IERC20 public GBTS;
 
-    uint256 private gameId;
     uint256 constant betAmount = 5 * 10**17; // .5 GBTS to make a bet
 
     /// @notice bettedGBTS keeps track of all GBTS brought in through ticket purchase
@@ -52,16 +51,10 @@ contract Keno is ReentrancyGuard {
      * @dev Constructor function
      * @param _ULP Interface of ULP
      * @param _GBTS Interface of GBTS
-     * @param _gameId Id of current game
      */
-    constructor(
-        IUnifiedLiquidityPool _ULP,
-        IERC20 _GBTS,
-        uint256 _gameId
-    ) {
+    constructor(IUnifiedLiquidityPool _ULP, IERC20 _GBTS) {
         ULP = _ULP;
         GBTS = _GBTS;
-        gameId = _gameId;
 
         winningTable.push();
         winningTable.push([0, 326]); // 0, 3.26
@@ -126,16 +119,7 @@ contract Keno is ReentrancyGuard {
         uint32 size = 0;
 
         while (size < 15) {
-            uint256 gameNumber = (uint256(
-                keccak256(
-                    abi.encode(
-                        randomNumber,
-                        address(msg.sender),
-                        gameId,
-                        _ticketNumber
-                    )
-                )
-            ) % 50) + 1;
+            uint256 gameNumber = (randomNumber % 50) + 1;
 
             _ticketNumber++;
 
