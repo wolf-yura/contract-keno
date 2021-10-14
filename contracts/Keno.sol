@@ -4,30 +4,33 @@ pragma solidity ^0.8.6;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IUnifiedLiquidityPool.sol";
+import "./interfaces/IRandomNumberGenerator.sol";
 
 /**
  * @title Keno Contract
  */
-contract Keno is ReentrancyGuard {
+contract Keno is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
+    /// @notice Event emitted when the keno is deployed.
+    event KenoDeployed();
+
     /// @notice Event emitted when user bought the tickets.
-    event TicketsBought(address buyer, uint256 ticketNumber);
+    event BetStarted(BetInfo betInfo);
 
     /// @notice Event emitted when user played.
-    event TicketPlayed(
-        address player,
-        Ticket ticketPlayed,
-        uint256 winnings,
-        bool[51] drawnTickets,
-        uint256 ticketNumber
-    );
+    event BetFinished(BetInfo betInfo);
+
+    /// @notice Event emitted when the bet amount is changed.
+    event BetAmountChanged(uint256 newBetAmount);
 
     IUnifiedLiquidityPool public ULP;
+    IRandomNumberGenerator public RNG;
     IERC20 public GBTS;
 
-    uint256 constant betAmount = 5 * 10**17; // .5 GBTS to make a bet
+    uint256 public betAmount; // .5 GBTS to make a bet
 
     /// @notice bettedGBTS keeps track of all GBTS brought in through ticket purchase
     uint256 public totalBettedAmount;
@@ -38,23 +41,40 @@ contract Keno is ReentrancyGuard {
     /// @notice Determine the winnings the player will receive
     uint256[][] public winningTable;
 
-    struct Ticket {
+    struct BetInfo {
+        address player;
+        bytes32 requestId;
         uint256 length;
-        uint256[] numbers;
-        bytes32 batchID;
-        bool[51] drawnTickets;
+        uint256[] userNumbers;
+        bool[51] gameNumbers;
     }
 
-    mapping(address => Ticket[]) private playerTickets;
+    mapping(bytes32 => BetInfo) public requestToBet;
+
+    modifier onlyRNG() {
+        require(
+            msg.sender == address(RNG),
+            "DiceRoll: Caller is not the RandomNumberGenerator"
+        );
+        _;
+    }
 
     /**
      * @dev Constructor function
      * @param _ULP Interface of ULP
      * @param _GBTS Interface of GBTS
+     * @param _RNG Interface of RandomNumberGenerator
      */
-    constructor(IUnifiedLiquidityPool _ULP, IERC20 _GBTS) {
+    constructor(
+        IUnifiedLiquidityPool _ULP,
+        IERC20 _GBTS,
+        IRandomNumberGenerator _RNG
+    ) {
         ULP = _ULP;
         GBTS = _GBTS;
+        RNG = _RNG;
+
+        betAmount = 5 * 10**17;
 
         winningTable.push();
         winningTable.push([0, 326]); // 0, 3.26
@@ -69,75 +89,72 @@ contract Keno is ReentrancyGuard {
         winningTable.push(
             [100, 0, 0, 0, 0, 300, 700, 2000, 50000, 1000000, 20000000]
         ); //1.00, 0, 0, 0, 0, 3.00, 7.00, 20.00, 500.00, 10000.00, 200000.00
+
+        emit KenoDeployed();
     }
 
     /**
-     * @dev External function for buying tickets.
-     * @param _chosenTicketNumbers Array of numbers chosen
+     * @dev External function to bet.
+     * @param _numbers Array of numbers chosen
      */
-    function buyTicket(uint256[] memory _chosenTicketNumbers)
-        external
-        nonReentrant
-    {
+    function bet(uint256[] memory _numbers) external nonReentrant {
         require(
-            _chosenTicketNumbers.length < 11 && _chosenTicketNumbers.length > 0,
+            _numbers.length < 11 && _numbers.length > 0,
             "Keno: Every ticket should have 1 to 10 numbers."
         );
 
         GBTS.safeTransferFrom(msg.sender, address(ULP), betAmount);
-        totalBettedAmount += betAmount;
-        uint256 _ticketNumber = playerTickets[msg.sender].length;
-        Ticket memory ticket;
-        ticket.length = _chosenTicketNumbers.length;
-        ticket.numbers = _chosenTicketNumbers;
-        ticket.batchID = ULP.requestRandomNumber();
-        playerTickets[msg.sender].push(ticket);
 
-        emit TicketsBought(msg.sender, _ticketNumber);
+        totalBettedAmount += betAmount;
+
+        bytes32 requestId = RNG.requestRandomNumber();
+        bool[51] memory gameNumbers;
+
+        requestToBet[requestId] = BetInfo(
+            msg.sender,
+            requestId,
+            _numbers.length,
+            _numbers,
+            gameNumbers
+        );
+
+        emit BetStarted(requestToBet[requestId]);
     }
 
     /**
-     * @dev External function to play.
-     * @param _ticketNumber Current Ticket Number
+     * @dev External function to play. This function can be called by only RandomNumberGenerator.
+     * @param _requestId Chainlink request Id
+     * @param _randomNumber Chainlink random number
      */
-    function play(uint256 _ticketNumber) external nonReentrant {
-        require(
-            _ticketNumber < playerTickets[msg.sender].length,
-            "Keno: No ticket to play."
-        );
-
-        Ticket storage ticket = playerTickets[msg.sender][_ticketNumber];
+    function play(bytes32 _requestId, uint256 _randomNumber) external onlyRNG {
+        BetInfo storage betInfo = requestToBet[_requestId];
 
         require(
-            !ticket.drawnTickets[0],
+            !betInfo.gameNumbers[0],
             "Keno: Current ticket is already played."
         );
-
-        uint256 randomNumber = ULP.getVerifiedRandomNumber(ticket.batchID);
 
         //Draw numbers using the Random Number Generator.
         uint32 size = 0;
 
         while (size < 15) {
-            uint256 gameNumber = (randomNumber % 50) + 1;
+            uint256 gameNumber = (_randomNumber % 50) + 1;
 
-            _ticketNumber++;
-
-            if (!ticket.drawnTickets[gameNumber]) {
-                ticket.drawnTickets[gameNumber] = true;
+            if (!betInfo.gameNumbers[gameNumber]) {
+                betInfo.gameNumbers[gameNumber] = true;
                 size++;
             }
         }
 
         uint256 matches = 0;
         //match the players choice with the draw
-        for (uint32 i = 0; i < ticket.length; i++) {
-            if (ticket.drawnTickets[ticket.numbers[i]]) {
+        for (uint32 i = 0; i < betInfo.length; i++) {
+            if (betInfo.gameNumbers[betInfo.userNumbers[i]]) {
                 matches++;
             }
         }
 
-        uint256[] memory selectedWinningTable = winningTable[ticket.length]; //The multiplier array of the choose size
+        uint256[] memory selectedWinningTable = winningTable[betInfo.length]; //The multiplier array of the choose size
         uint256 multiplier = selectedWinningTable[matches]; //Multiplier
         uint256 amountToSend = (multiplier * betAmount) / 100;
 
@@ -146,14 +163,18 @@ contract Keno is ReentrancyGuard {
             ULP.sendPrize(msg.sender, amountToSend);
         }
 
-        ticket.drawnTickets[0] = true;
+        betInfo.gameNumbers[0] = true;
 
-        emit TicketPlayed(
-            msg.sender,
-            ticket,
-            amountToSend,
-            ticket.drawnTickets,
-            _ticketNumber
-        );
+        emit BetFinished(betInfo);
+    }
+
+    /**
+     * @dev External function to change the bet amount. This function can be called by only owner.
+     * @param _newBetAmount New bet amount
+     */
+    function changeBetAmount(uint256 _newBetAmount) external onlyOwner {
+        betAmount = _newBetAmount;
+
+        emit BetAmountChanged(_newBetAmount);
     }
 }
