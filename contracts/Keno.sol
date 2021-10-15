@@ -129,16 +129,16 @@ contract Keno is ReentrancyGuard, Ownable {
     function play(bytes32 _requestId, uint256 _randomNumber) external onlyRNG {
         BetInfo storage betInfo = requestToBet[_requestId];
 
-        require(
-            !betInfo.gameNumbers[0],
-            "Keno: Current ticket is already played."
-        );
-
         //Draw numbers using the Random Number Generator.
-        uint32 size = 0;
+        uint256 size = 0;
+        uint256 nonce = betInfo.length;
 
         while (size < 15) {
-            uint256 gameNumber = (_randomNumber % 50) + 1;
+            uint256 gameNumber = (uint256(
+                keccak256(abi.encode(_randomNumber, address(msg.sender), nonce))
+            ) % 50) + 1;
+
+            nonce++;
 
             if (!betInfo.gameNumbers[gameNumber]) {
                 betInfo.gameNumbers[gameNumber] = true;
