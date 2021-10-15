@@ -21,7 +21,7 @@ contract Keno is ReentrancyGuard, Ownable {
     event BetStarted(BetInfo betInfo);
 
     /// @notice Event emitted when user played.
-    event BetFinished(BetInfo betInfo);
+    event BetFinished(BetInfo betInfo, uint256 matches, uint256 prize);
 
     /// @notice Event emitted when the bet amount is changed.
     event BetAmountChanged(uint256 newBetAmount);
@@ -165,7 +165,7 @@ contract Keno is ReentrancyGuard, Ownable {
 
         betInfo.gameNumbers[0] = true;
 
-        emit BetFinished(betInfo);
+        emit BetFinished(betInfo, matches, amountToSend);
     }
 
     /**
