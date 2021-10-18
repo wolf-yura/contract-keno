@@ -30,7 +30,7 @@ contract Keno is ReentrancyGuard, Ownable {
     IRandomNumberGenerator public RNG;
     IERC20 public GBTS;
 
-    uint256 public betAmount; // .5 GBTS to make a bet
+    uint256 public betAmount; // 100 GBTS to make a bet
 
     /// @notice bettedGBTS keeps track of all GBTS brought in through ticket purchase
     uint256 public totalBettedAmount;
