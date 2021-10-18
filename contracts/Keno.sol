@@ -74,21 +74,16 @@ contract Keno is ReentrancyGuard, Ownable {
         GBTS = _GBTS;
         RNG = _RNG;
 
-        betAmount = 5 * 10**17;
+        betAmount = 100 * 10**18;
 
         winningTable.push();
-        winningTable.push([0, 326]); // 0, 3.26
-        winningTable.push([0, 0, 1141]); // 0, 0, 11.41
-        winningTable.push([0, 0, 200, 2600]); //  0, 0, 2.00, 26.00
-        winningTable.push([0, 0, 0, 800, 7200]); // 0, 0, 0, 8.00, 72.00
-        winningTable.push([0, 0, 0, 100, 1600, 25490]); // 0, 0, 0, 1.00, 16.00, 254.90
-        winningTable.push([0, 0, 0, 200, 200, 4500, 65000]); // 0, 0, 0, 2.00, 2.00, 45.00, 650.00
-        winningTable.push([100, 0, 0, 0, 200, 1100, 15000, 425000]); //1.00, 0, 0, 0, 2.00, 11.00, 150.00, 4250.00
-        winningTable.push([100, 0, 0, 0, 100, 500, 3500, 40000, 2140000]); // 1.00, 0, 0, 0, 1.00, 5.00, 35.00, 400.00, 21400.00
-        winningTable.push([100, 0, 0, 0, 0, 300, 1600, 18000, 200000, 5000000]); // 1.00, 0, 0, 0, 0, 3.00, 16.00, 180.00, 2000.00, 50000.00
-        winningTable.push(
-            [100, 0, 0, 0, 0, 300, 700, 2000, 50000, 1000000, 20000000]
-        ); //1.00, 0, 0, 0, 0, 3.00, 7.00, 20.00, 500.00, 10000.00, 200000.00
+        winningTable.push([0, 220]); // 0, 2.2
+        winningTable.push([0, 0, 1030]); // 0, 0, 10.3
+        winningTable.push([0, 0, 100, 2450]); //  0, 0, 1.00, 24.50
+        winningTable.push([0, 0, 0, 700, 6900]); // 0, 0, 0, 7.00, 69.00
+        winningTable.push([0, 0, 0, 100, 1600, 22900]); // 0, 0, 0, 1.00, 16.00, 229.00
+        winningTable.push([0, 0, 0, 100, 200, 3900, 55400]); // 0, 0, 0, 1.00, 2.00, 39.00, 554.00
+        winningTable.push([0, 0, 0, 0, 100, 1400, 22100, 199900]); //0, 0, 0, 0, 1.00, 14.00, 221.00, 1999.00
 
         emit KenoDeployed();
     }
@@ -99,8 +94,8 @@ contract Keno is ReentrancyGuard, Ownable {
      */
     function bet(uint256[] memory _numbers) external nonReentrant {
         require(
-            _numbers.length < 11 && _numbers.length > 0,
-            "Keno: Every ticket should have 1 to 10 numbers."
+            _numbers.length < 8 && _numbers.length > 0,
+            "Keno: Every ticket should have 1 to 7 numbers."
         );
 
         GBTS.safeTransferFrom(msg.sender, address(ULP), betAmount);
